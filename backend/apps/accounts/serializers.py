@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, Permission
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from apps.common.models import Persona, Personal
+from apps.accounts.models import Persona, Personal
 #-------------------(CU2)----------------------
 # Serializers para los modelos de autenticación y
 #  autorización de Django
@@ -48,8 +48,9 @@ User = get_user_model()
 
 # CRUD admin de usuarios
 class UserSerializer(serializers.ModelSerializer):
-    from django.contrib.auth.models import Group
-    groups = serializers.PrimaryKeyRelatedField(many=True, queryset=Group.objects.all(), required=False)
+    groups = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Group.objects.all(), required=False
+    )
     password = serializers.CharField(write_only=True, required=True, min_length=8)
 
     class Meta:
@@ -83,59 +84,114 @@ class UserSerializer(serializers.ModelSerializer):
             instance.groups.set(groups)
         return instance
 
-# REGISTRO de RESIDENTE (User + Persona)
-class RegisterResdentesSerializer(serializers.ModelSerializer):
-    # datos persona
-      ci = serializers.CharField(write_only=True)
-      telefono = serializers.CharField(write_only=True, required=False, allow_blank=True)
-      nombres = serializers.CharField(write_only=True)
-      apellidos = serializers.CharField(write_only=True)
-      fecha_nacimiento = serializers.DateField(write_only=True, required=False, allow_null=True)
 
-      class Meta:
-          model = User
-          fields = [
-              "id", "username", "email", "first_name", "last_name",
-              "password", "ci", "telefono", "nombres", "apellidos", "fecha_nacimiento"
-          ]
-          extra_kwargs = {
-              "password": {"write_only": True, "min_length": 8}}
+# --------- REGISTRO RESIDENTE (User + Persona) ----------
+class RegisterResidentSerializer(serializers.ModelSerializer):
+    # Datos Persona
+    ci = serializers.CharField(write_only=True)
+    nombres = serializers.CharField(write_only=True)
+    apellidos = serializers.CharField(write_only=True)
+    telefono = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    fecha_nacimiento = serializers.DateField(write_only=True, required=False, allow_null=True)
+    tipo = serializers.ChoiceField(write_only=True, choices=Persona.Tipo.choices)
+    jefe = serializers.PrimaryKeyRelatedField(
+        write_only=True, queryset=Persona.objects.all(), required=False, allow_null=True
+    )
 
-      def validate(self, attrs):
-          username = attrs["username"]
-          if User.objects.filter(username=username).exists():
-              raise serializers.ValidationError(
-                  {"username": "El nombre de usuario ya está en uso."})
-          
-          email = attrs["email"]
-          if email and User.objects.filter(email=email).exists():
-                raise serializers.ValidationError(
-                    {"email": "El correo electrónico ya está en uso."})
-          
-          return attrs
-      
-      def create(self, data):
-          #crear usuario
-          password = data.pop("password")
-          ci = data.pop("ci")
-          telefono = data.pop("telefono")
-          nombres = data.pop("nombres")
-          apellidos = data.pop("apellidos")
-          fecha_nacimiento = data.pop("fecha_nacimiento", None)
+    class Meta:
+        model = User
+        fields = [
+            "username", "password", "email", "first_name", "last_name",
+            "ci", "nombres", "apellidos", "telefono", "fecha_nacimiento",
+            "tipo", "jefe",
+        ]
+        extra_kwargs = {"password": {"write_only": True, "min_length": 8}}
 
-          user = User.objects.create(**data)
-          user.set_password(password)
-          user.is_active = True
-          user.save()
-          
-          #si ya tiene perfil de personal no permitir (regla de necogio)
-          if hasattr(user,"personal"):
-              raise serializers.ValidationError(
-                  {"user": "El usuario ya tiene un perfil de personal asociado."})
-          
-          Persona.objects.create(
-              user=user, ci=ci, telefono=telefono,
-              nombres=nombres, apellidos=apellidos,
-              fecha_nacimiento=fecha_nacimiento
-           )
-          #asignar Rol
+    def validate(self, attrs):
+        if User.objects.filter(username=attrs["username"]).exists():
+            raise serializers.ValidationError({"username": "Ya existe"})
+        email = attrs.get("email")
+        if email and User.objects.filter(email=email).exists():
+            raise serializers.ValidationError({"email": "Ya está en uso"})
+        return attrs
+
+    def create(self, data):
+        password = data.pop("password")
+        ci = data.pop("ci")
+        nombres = data.pop("nombres")
+        apellidos = data.pop("apellidos")
+        telefono = data.pop("telefono", "")
+        fecha_nacimiento = data.pop("fecha_nacimiento", None)
+        tipo = data.pop("tipo")
+        jefe = data.pop("jefe", None)
+
+        user = User.objects.create(**data, is_active=True)
+        user.set_password(password)
+        user.save()
+
+        if hasattr(user, "personal"):
+            raise serializers.ValidationError("El usuario ya es Personal.")
+
+        persona = Persona.objects.create(
+            user=user, ci=ci, nombres=nombres, apellidos=apellidos,
+            telefono=telefono, fecha_nacimiento=fecha_nacimiento,
+            tipo=tipo, jefe=jefe
+        )
+
+        # rol por defecto
+        residente = Group.objects.filter(name="Residente").first()
+        if residente:
+            user.groups.add(residente)
+
+        return user
+
+
+# --------- ALTA PERSONAL (User + Personal, sólo admin) ----------
+class CreateStaffSerializer(serializers.ModelSerializer):
+    # Datos Personal (nota: nombre en singular)
+    nombre = serializers.CharField(write_only=True)
+    apellidos = serializers.CharField(write_only=True)
+    cargo = serializers.CharField(write_only=True)
+    estado = serializers.ChoiceField(write_only=True, choices=Personal.Estado.choices)
+    fecha_contratacion = serializers.DateField(write_only=True)
+    sueldo = serializers.DecimalField(write_only=True, max_digits=10, decimal_places=2)
+    tipo = serializers.ChoiceField(write_only=True, choices=Personal.Tipo.choices)
+
+    class Meta:
+        model = User
+        fields = [
+            "username", "password", "email",
+            "nombre", "apellidos", "cargo", "estado",
+            "fecha_contratacion", "sueldo", "tipo",
+        ]
+        extra_kwargs = {"password": {"write_only": True, "min_length": 8}}
+
+    def create(self, data):
+        password = data.pop("password")
+
+        nombre = data.pop("nombre")
+        apellidos = data.pop("apellidos")
+        cargo = data.pop("cargo")
+        estado = data.pop("estado")
+        fecha_contratacion = data.pop("fecha_contratacion")
+        sueldo = data.pop("sueldo")
+        tipo = data.pop("tipo")
+
+        user = User.objects.create(**data, is_active=True, is_staff=True)
+        user.set_password(password)
+        user.save()
+
+        if hasattr(user, "persona"):
+            raise serializers.ValidationError("El usuario ya es Residente.")
+
+        Personal.objects.create(
+            user=user, nombre=nombre, apellidos=apellidos, cargo=cargo,
+            estado=estado, fecha_contratacion=fecha_contratacion,
+            sueldo=sueldo, tipo=tipo
+        )
+
+        personal_group = Group.objects.filter(name="Personal").first()
+        if personal_group:
+            user.groups.add(personal_group)
+
+        return user

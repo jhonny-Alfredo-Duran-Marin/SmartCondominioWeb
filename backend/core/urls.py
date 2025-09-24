@@ -30,6 +30,18 @@ urlpatterns = [
     path("api/docs/",   SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 
     # CU2 – Roles y Permisos
-    path("api/v1/accounts/", include("apps.accounts.urls")),
+    path("api/accounts/", include("apps.accounts.urls")),
+    # CU11 – Gestionar Ubicación de Establecimientos
+    path("api/maintenance/", include("apps.maintenance.urls")),
+    # CU4 – Gestionar de Reservas
+    path("api/reservations/", include("apps.reservations.urls")),
+    # CU5 – Gestionar Cuotas y Pagos de Residentes
+    path("api/finance/", include("apps.finance.urls")),
+    # CU6 – Gestionar Propiedades y Ocupaciones
+    path("api/common/", include("apps.common.urls")),
+
 ]
+
+
+   
 

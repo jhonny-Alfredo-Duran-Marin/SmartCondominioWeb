@@ -16,7 +16,7 @@ class Persona(models.Model):
     class Tipo(models.TextChoices):
          PADRE = "Padre", "Padre"
          MADRE = "Madre", "Madre"
-         HIJO = "Hijo", "Hijo",
+         HIJO = "Hijo", "Hijo"
          CONYUGE = "Conyuge", "Conyuge"
          OTRO = "Otro", "Otro"
 
@@ -31,7 +31,7 @@ class Persona(models.Model):
     telefono=models.CharField(max_length=30, blank=True)
     fecha_nacimiento=models.DateField(null=True, blank=True)
     estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ACTIVO)
-    tipo = models.CharField(max_length=10, choices=Tipo)
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

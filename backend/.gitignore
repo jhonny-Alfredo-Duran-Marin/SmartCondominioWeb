@@ -1,0 +1,66 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ==========================
+# Virtual environment
+# ==========================
+venv/
+.venv/
+env/
+ENV/
+*.env
+*.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ==========================
+# Django
+# ==========================
+*.log
+*.pot
+*.pyc
+db.sqlite3
+media/
+staticfiles/
+static/
+
+# ==========================
+# IDEs / Editors
+# ==========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ==========================
+# System files
+# ==========================
+.DS_Store
+Thumbs.db
+
+# ==========================
+# Migrations cache (opcional)
+# ==========================
+*/migrations/*.py
+!*/migrations/__init__.py
+
+# ==========================
+# Coverage / Tests
+# ==========================
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.pytest_cache/
